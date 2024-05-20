@@ -6,26 +6,26 @@ parameters:
   default: ''
 - name: REGION_ACCOUNT
   default: 'us-east-1'
-- name: CLUSTER_NAME
-  default: 'CLUSTER_NAME'
+# - name: CLUSTER_NAME
+#   default: 'CLUSTER_NAME'
 - name: IMAGE_NAME
   default: 'app:holaMundo'
 
 stages:
 - stage: Deploy
   displayName: 'Deploy to EKS'
-  # variables:
-  # - template: ../variables/variablesMicroservice.yml@templates
-  # - group: ${{ variables.ENV_VARIABLE_GROUP }}
-  - name: ENV_VARIABLE_GROUP
-    ${{ if in(variables['Build.SourceBranchName'], 'develop') }}:
-      value: desarrollo
-    ${{ elseif in(variables['Build.SourceBranchName'], 'release') }}:
-      value: qa
-    ${{ elseif in(variables['Build.SourceBranchName'], 'master') }}:
-      value: prd
-    ${{ else }}:
-      value: desarrollo
+  variables:
+  - template: ../variables/variablesMicroservice.yml@templates
+  - group: ${{ variables.ENV_VARIABLE_GROUP }}
+  # - name: ENV_VARIABLE_GROUP
+  #   ${{ if in(variables['Build.SourceBranchName'], 'develop') }}:
+  #     value: desarrollo
+  #   ${{ elseif in(variables['Build.SourceBranchName'], 'release') }}:
+  #     value: qa
+  #   ${{ elseif in(variables['Build.SourceBranchName'], 'master') }}:
+  #     value: prd
+  #   ${{ else }}:
+  #     value: desarrollo
   jobs:
   - deployment: Deploy
     displayName: 'Deploy'
