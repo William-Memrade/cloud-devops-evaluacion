@@ -1,0 +1,9 @@
+variables:
+  ${{ if eq(variables['Build.SourceBranchName'], 'develop') }}:
+    ENV_VARIABLE_GROUP: desarrollo
+  ${{ elseif eq(variables['Build.SourceBranchName'], 'release') }}:
+    ENV_VARIABLE_GROUP: qa
+  ${{ elseif eq(variables['Build.SourceBranchName'], 'master') }}:
+    ENV_VARIABLE_GROUP: prd
+  ${{ else }}:
+    ENV_VARIABLE_GROUP: desarrollo

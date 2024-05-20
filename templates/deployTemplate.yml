@@ -1,0 +1,65 @@
+# azure-release-pipelines.yml
+parameters:
+- name: AWS_ACCESS_KEY_ID
+  default: ''
+- name: AWS_SECRET_ACCESS_KEY
+  default: ''
+- name: REGION_ACCOUNT
+  default: 'us-east-1'
+- name: CLUSTER_NAME
+  default: 'CLUSTER_NAME'
+- name: IMAGE_NAME
+  default: 'app:holaMundo'
+
+stages:
+- stage: Deploy
+  displayName: 'Deploy to EKS'
+  # variables:
+  # - template: ../variables/variablesMicroservice.yml@templates
+  # - group: ${{ variables.ENV_VARIABLE_GROUP }}
+  - name: ENV_VARIABLE_GROUP
+    ${{ if in(variables['Build.SourceBranchName'], 'develop') }}:
+      value: desarrollo
+    ${{ elseif in(variables['Build.SourceBranchName'], 'release') }}:
+      value: qa
+    ${{ elseif in(variables['Build.SourceBranchName'], 'master') }}:
+      value: prd
+    ${{ else }}:
+      value: desarrollo
+  jobs:
+  - deployment: Deploy
+    displayName: 'Deploy'
+    pool:
+      vmImage: 'ubuntu-latest'
+    # workspace:
+    #   clean: all
+    # container:
+    #   image: ${{ parameters.IMAGE_NAME }}
+    environment: ${{ variables.ENV_VARIABLE_GROUP }}
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+          - task: DownloadPipelineArtifact@2
+            inputs:
+              buildType: 'specific'
+              project: 'MicroServicio_Evaluacion'
+              pipeline: 'your-ci-pipeline-id'
+              runVersion: 'latest'
+              artifact: 'docker-image'
+              path: '$(Pipeline.Workspace)/docker-image'
+          - script: |
+              # Configura AWS CLI
+              aws configure set aws_access_key_id ${{ parameters.AWS_ACCESS_KEY_ID }}
+              aws configure set aws_secret_access_key ${{ parameters.AWS_SECRET_ACCESS_KEY }}
+              aws configure set default.region ${{ parameters.REGION_ACCOUNT }}
+
+              # Desplegar la infraestructura con CloudFormation
+              aws cloudformation deploy --template-file $(System.DefaultWorkingDirectory)/IAC_Evaluacion/cf-template.yml --stack-name {my-stack-name} --capabilities CAPABILITY_NAMED_IAM
+              
+              # # Desplegar la imagen Docker en EKS
+              # aws eks update-kubeconfig --name ${{ parameters.CLUSTER_NAME }}
+              # # kubectl apply -f $(Pipeline.Workspace)/docker-image/deployment.yml
+              # kubectl apply -f deployment.yml
+            displayName: 'Deploy Infra with CloudFormation'

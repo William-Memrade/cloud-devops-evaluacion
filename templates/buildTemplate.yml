@@ -1,0 +1,51 @@
+# buildTemplate.yml
+parameters:
+- name: IMAGE_NAME
+  default: 'app:holaMundo'
+
+stages:
+- stage: Build
+  displayName: 'Build'
+  dependsOn: []
+  jobs:
+  - job: Build_Job
+    displayName: 'Build Job'
+    steps:
+    - task: Maven@3
+      inputs:
+        mavenPomFile: 'pom.xml'
+        goals: 'package'
+        options: '-DskipTests'
+
+    - task: CopyFiles@2
+      inputs:
+        contents: 'target/microservicio-evaluacion-backend-1.0-SNAPSHOT.jar'
+        targetFolder: '$(Build.ArtifactStagingDirectory)'
+
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'drop'
+        publishLocation: 'Container'
+
+- stage: BuildDockerImage
+  displayName: 'Build Docker Image Stage'
+  dependsOn: [Build]
+  jobs:
+  - job: BuildDockerImage_Job
+    displayName: 'Build Docker Image Job'
+    steps:
+    - script: |
+        pwd
+        ls -la
+        cat Dockerfile
+        echo "[INFO] docker build -t ${{ parameters.IMAGE_NAME }} -f Dockerfile ."
+        docker build -t ${{ parameters.IMAGE_NAME }} -f Dockerfile .
+        docker save ${{ parameters.IMAGE_NAME }} | gzip > $(Build.ArtifactStagingDirectory)/${{ parameters.IMAGE_NAME }}.tar.gz
+      displayName: 'Build Docker Image'
+
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/${{ parameters.IMAGE_NAME }}.tar.gz'
+        ArtifactName: 'docker-image'
+        publishLocation: 'Container'
