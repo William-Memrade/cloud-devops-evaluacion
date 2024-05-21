@@ -11,6 +11,11 @@ stages:
   - job: Build_Job
     displayName: 'Build Job'
     steps:
+    - script: |
+        pwd
+        ls -la
+      displayName: 'posicion'
+
     - task: Maven@3
       inputs:
         mavenPomFile: 'pom.xml'
