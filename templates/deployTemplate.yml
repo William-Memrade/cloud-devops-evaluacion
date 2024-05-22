@@ -6,57 +6,61 @@ parameters:
   default: ''
 - name: REGION_ACCOUNT
   default: 'us-east-1'
-# - name: CLUSTER_NAME
-#   default: 'CLUSTER_NAME'
+- name: CLUSTER_NAME
+  default: 'CLUSTER_NAME'
 - name: IMAGE_NAME
-  default: 'app:holaMundo'
+  default: 'app_hola_mundo'
 
 stages:
 - stage: Deploy
-  displayName: 'Deploy to EKS'
+  displayName: 'Primary Deploy'
   variables:
   - template: ../variables/variablesMicroservice.yml@templates
-  - group: ${{ variables.ENV_VARIABLE_GROUP }}
-  # - name: ENV_VARIABLE_GROUP
-  #   ${{ if in(variables['Build.SourceBranchName'], 'develop') }}:
-  #     value: desarrollo
-  #   ${{ elseif in(variables['Build.SourceBranchName'], 'release') }}:
-  #     value: qa
-  #   ${{ elseif in(variables['Build.SourceBranchName'], 'master') }}:
-  #     value: prd
-  #   ${{ else }}:
-  #     value: desarrollo
+  - name: ENV_VARIABLE_GROUP
+    value: ${{ variables.ENV_VARIABLE_GROUP }}
   jobs:
   - deployment: Deploy
     displayName: 'Deploy'
-    pool:
-      vmImage: 'ubuntu-latest'
-    # workspace:
-    #   clean: all
-    # container:
-    #   image: ${{ parameters.IMAGE_NAME }}
     environment: ${{ variables.ENV_VARIABLE_GROUP }}
     strategy:
       runOnce:
         deploy:
           steps:
           - checkout: self
-          - task: DownloadPipelineArtifact@2
+          - task: UniversalPackages@0
+            displayName: 'DownloadReseleArtifact'
             inputs:
-              buildType: 'specific'
-              project: 'MicroServicio_Evaluacion'
-              pipeline: 'your-ci-pipeline-id'
-              runVersion: 'latest'
-              artifact: 'docker-image'
-              path: '$(Pipeline.Workspace)/docker-image'
+              command: 'download'
+              downloadDirectory: '$(System.DefaultWorkingDirectory)'
+              vstsFeed: 'ghernandez/snapshot'
+              vstsFeedPackage: 'microservicio_evaluacion'
+              vstsPackageVersion: '0.0.1'
+              
           - script: |
-              # Configura AWS CLI
+              echo "[INFO] $(System.DefaultWorkingDirectory)"
+              ls -la $(System.DefaultWorkingDirectory)
+            displayName: 'Verify files'
+
+          - script: |
+              sudo apt-get update -y
+              sudo apt-get install awscli -y
+
+              aws --version
+            displayName: 'Install AWS CLI'
+
+          - script: |
+              echo "##vso[task.setvariable variable=AWS_ACCESS_KEY_ID]${{ variables.AWS_ACCESS_KEY_ID }}"
+              echo "##vso[task.setvariable variable=AWS_SECRET_ACCESS_KEY]${{ variables.AWS_SECRET_ACCESS_KEY }}"
+              echo "##vso[task.setvariable variable=REGION_ACCOUNT]${{ variables.REGION_ACCOUNT }}"
+            displayName: 'Set AWS Environment Variables'
+
+          - script: |
               aws configure set aws_access_key_id ${{ parameters.AWS_ACCESS_KEY_ID }}
               aws configure set aws_secret_access_key ${{ parameters.AWS_SECRET_ACCESS_KEY }}
               aws configure set default.region ${{ parameters.REGION_ACCOUNT }}
 
               # Desplegar la infraestructura con CloudFormation
-              aws cloudformation deploy --template-file $(System.DefaultWorkingDirectory)/IAC_Evaluacion/cf-template.yml --stack-name {my-stack-name} --capabilities CAPABILITY_NAMED_IAM
+              aws cloudformation deploy --template-file $(System.DefaultWorkingDirectory)/cf-template.yml --stack-name {my-stack-name} --capabilities CAPABILITY_NAMED_IAM
               
               # # Desplegar la imagen Docker en EKS
               # aws eks update-kubeconfig --name ${{ parameters.CLUSTER_NAME }}
